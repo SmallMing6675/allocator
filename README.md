@@ -1,37 +1,50 @@
-## Implments a heap allocator in C.
+# Heap Allocator Implementation in C
 
-it first asks for a 4096 byte region that will be used for the heap.
-`[                                                                 ]`
+This implementation of a heap allocator in C follows a simple approach:
 
-it is then split up for storing metadata such as size.
-`[   ][     ][                                                     ]`
-info chunk raw memory
+1. **Heap Initialization**:
+   It first requests a 4096-byte region to be used as the heap.
 
-when a user allocates memory, the chunk is then split up into smaller chunks;
+   ```
+   [                                                                ]
+   ```
 
-`[   ][     ][          ][     ][                                  ]`
-info chunk ^^^^^^^^^^ chunk2
-this is returned
+2. **Metadata Storage**:
+   The heap region is split up to store metadata such as size.
 
-when a user frees up memory, it simply sets the `inuse` flag to false.
-however, to avoid fragmentation, unused chunks are merged together.
+   ```
+   [info][head][                                                     ]
+   ```
 
-in this diagram, both chunk and chunk2 are freed.
+   Info Chunk Raw Memory
 
-`[   ][     ][          ][     ][                                  ]`
-info chunk chunk2
+3. **Memory Allocation**:
+   When a user allocates memory, the chunk is split up into smaller chunks.
 
-`[   ][     ][                                                     ]`
-info chunk
+   ```
+   [info][head][          ][head2][                                  ]
+   ```
 
-Note: for searching through usable chunks, I simply added its size to the
-original pointer.
+   This allocated memory is then returned.
 
-`[   ][     ][          ][     ][                                  ]`
-info chunk chunk2
-^ ^
-ptrA ptrB
+4. **Memory Deallocation**:
+   When a user frees memory, the `inuse` flag is set to false. To avoid fragmentation, unused chunks are merged together.
 
-by adding sizeof(HeapChunk) and chunk->size, we are able to go to the next chunk
-without using a linked list. however, this means that the chunks has to be
-arranged linearly and without gaps.
+   ```
+   [info][head][          ][head2][                                  ]
+   ```
+
+   Is then merged to:
+
+   ```
+   [info][head][                                                     ]
+   ```
+
+Note: For searching through usable chunks, the size is added to the original pointer.
+
+```
+[info][ptrA][          ][ptrB][                                   ]
+```
+
+By adding `sizeof(HeapChunk)` and `chunk->size`, we can go to the next chunk without using a linked list.
+However, this means that the chunks have to be arranged linearly and without gaps.
