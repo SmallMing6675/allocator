@@ -6,7 +6,7 @@ This implementation of a heap allocator in C follows a simple approach:
    It first requests a 4096-byte region to be used as the heap.
 
    ```
-   [                                                                ]
+   [                                                                 ]
    ```
 
 2. **Metadata Storage**:
@@ -43,7 +43,7 @@ This implementation of a heap allocator in C follows a simple approach:
 Note: For searching through usable chunks, the size is added to the original pointer.
 
 ```
-[info][ptrA][          ][ptrB][                                   ]
+[info][ptrA][          ][ptrB][                                      ]
 ```
 
 By adding `sizeof(HeapChunk)` and `chunk->size`, we can go to the next chunk without using a linked list.
