@@ -16,8 +16,6 @@ This implementation of a heap allocator in C follows a simple approach:
    [info][head][                                                     ]
    ```
 
-   Info Chunk Raw Memory
-
 3. **Memory Allocation**:
    When a user allocates memory, the chunk is split up into smaller chunks.
 
@@ -32,6 +30,18 @@ This implementation of a heap allocator in C follows a simple approach:
 
    ```
    [info][head][          ][head2][                                  ]
+   ```
+
+   Is then merged to:
+
+   ```
+   [info][head][                                                     ]
+   ```
+
+   When freeing the middle head, it will search for the next and previous chunk and merge all of them together.
+
+   ```
+   [info][head][          ][head2][          ][head3][               ]
    ```
 
    Is then merged to:

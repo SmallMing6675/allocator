@@ -8,9 +8,11 @@
 #include <sys/types.h>
 
 #define HEAP_SIZE 4096
+#define HEAP_NOT_IN_USE_MAGIC 0xDEADBEEF
+#define HEAP_IN_USE_MAGIC 0xBAADF00D
 
 typedef struct HeapChunk {
-  bool inuse;
+  uint32_t magic;
   uint16_t size;
   uint16_t previous_size;
 } HeapChunk;
@@ -52,7 +54,7 @@ HeapInfo *init_heap() {
   heap = (HeapInfo *)heap_start;
   HeapChunk *first_chunk = heap_start + sizeof(HeapInfo);
   first_chunk->size = HEAP_SIZE - sizeof(HeapInfo) - sizeof(HeapChunk);
-  first_chunk->inuse = false;
+  first_chunk->magic = HEAP_NOT_IN_USE_MAGIC;
   first_chunk->previous_size = 0;
   heap->available_size = first_chunk->size;
   return heap;
@@ -65,6 +67,9 @@ void destroy_heap() {
   }
 }
 
+bool _is_in_use(const HeapChunk *ptr) {
+  return ptr->magic == HEAP_IN_USE_MAGIC;
+}
 void *heap_alloc(uint16_t size) {
   /*
 
@@ -78,10 +83,15 @@ void *heap_alloc(uint16_t size) {
   if (heap->available_size < size) {
     return (void *)-1;
   }
-  HeapChunk *chunk = _get_first_block(heap);
+  HeapChunk 0xDEADBEEF *chunk = _get_first_block(heap);
 
-  while (chunk->size < size || chunk->inuse) {
+  while (chunk->size < size || _is_in_use(chunk) && !_is_last_chunk(chunk)) {
     chunk = _get_next_block(chunk, chunk->size);
+  }
+
+  if (chunk->magic != HEAP_NOT_IN_USE_MAGIC) {
+    printf("Magic number not found, heap is either corrupted or overwritten\n");
+    return (void *)-1;
   }
 
   if (chunk->size == size) {
@@ -91,9 +101,9 @@ void *heap_alloc(uint16_t size) {
   HeapChunk *new_chunk = _get_next_block(chunk, size);
   new_chunk->size = chunk->size - size - sizeof(HeapChunk);
   new_chunk->previous_size = size;
-  new_chunk->inuse = false;
+  new_chunk->magic = HEAP_NOT_IN_USE_MAGIC;
   chunk->size = size;
-  chunk->inuse = true;
+  chunk->magic = HEAP_IN_USE_MAGIC;
 
   heap->available_size -= size + sizeof(HeapChunk);
 
@@ -105,25 +115,26 @@ void heap_free(void *ptr) {
      [            ][                 ][                  ]
         */
   HeapChunk *chunk = ptr - sizeof(HeapChunk);
-
-  chunk->inuse = false;
+  if (chunk->magic != HEAP_IN_USE_MAGIC) {
+    printf("Magic number not found, heap is either corrupted or overwritten\n");
+    return;
+  }
+  chunk->magic = HEAP_NOT_IN_USE_MAGIC;
   if (chunk->previous_size) {
     HeapChunk *prev_chunk =
         (void *)chunk - chunk->previous_size - sizeof(HeapChunk);
-    if (!prev_chunk->inuse) {
+    if (!_is_in_use(prev_chunk)) {
       prev_chunk->size = prev_chunk->size + sizeof(HeapChunk) + chunk->size;
       /*merge those two chunks into a larger chunk*/
     }
-    prev_chunk->inuse = false;
-
-    HeapChunk *next_chunk = _get_next_block(prev_chunk, prev_chunk->size);
-    if (next_chunk) {
-      next_chunk->previous_size = prev_chunk->size;
-    }
+    prev_chunk->magic = HEAP_NOT_IN_USE_MAGIC;
+    chunk = prev_chunk;
   }
   HeapChunk *next_chunk = _get_next_block(chunk, chunk->size);
   if (next_chunk) {
-    if (!next_chunk->inuse) {
+
+    next_chunk->previous_size = chunk->size;
+    if (!_is_in_use(next_chunk)) {
       chunk->size = chunk->size + sizeof(HeapChunk) + next_chunk->size;
     }
   }
@@ -135,10 +146,11 @@ void print_heap(const HeapInfo *heap_start) {
 
   while ((void *)head < ((void *)heap + HEAP_SIZE)) {
 
-    printf("Chunk: location relative to heap: %d size: %d previous size: %d "
-           "inuse: %b \n",
+    printf("Chunk:\n    location relative to heap: %ld\n    size: %d\n    "
+           "previous size: %d"
+           "\n    inuse: %b\n\n",
            (void *)head - (void *)heap, head->size, head->previous_size,
-           head->inuse);
+           _is_in_use(head));
     head = _get_next_block(head, head->size);
   }
   printf("\n");
@@ -147,23 +159,26 @@ void print_heap(const HeapInfo *heap_start) {
 struct Example {
   char buffer[32];
 };
+
 int main() {
   init_heap();
+  print_heap(heap);
 
   struct Example *x = heap_alloc(32);
   struct Example *y = heap_alloc(64);
 
   printf("%p, %p \n", x, y);
-  printf("%d, %d \n", sizeof(*x), sizeof(*y));
+  printf("%ld, %ld \n", sizeof(*x), sizeof(*y));
   strcpy(x->buffer, "Hello World!");
   strcpy(y->buffer, "example usage");
 
   HeapChunk *first = _get_first_block(heap);
 
-  heap_free(x);
-
   print_heap(heap);
+  heap_free(x);
   heap_free(y);
+
+  void *z = heap_alloc(200);
 
   print_heap(heap);
 }
