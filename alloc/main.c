@@ -179,21 +179,18 @@ int main()
     init_heap();
     print_heap(heap);
 
-    struct Example* x = heap_alloc(32);
+    struct Example* x = heap_alloc(128);
     struct Example* y = heap_alloc(64);
 
-    printf("%p, %p \n", x, y);
-    printf("%ld, %ld \n", sizeof(*x), sizeof(*y));
     strcpy(x->buffer, "Hello World!");
     strcpy(y->buffer, "example usage");
 
-    HeapChunk* first = _get_first_block(heap);
-
     print_heap(heap);
+
     heap_free(x);
     heap_free(y);
 
-    void* z = heap_alloc(200);
+    void* z = heap_alloc(208);
 
     print_heap(heap);
 }
